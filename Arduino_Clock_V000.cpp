@@ -1,6 +1,3 @@
-#include <TinyGPS++.h>
-#include <SoftwareSerial.h>
-
 #include <Wire.h>
 #include <LCD.h>
 #include <LiquidCrystal_I2C.h>
@@ -14,7 +11,6 @@
 
 //MP3 Shield Library
 #include <SFEMP3Shield.h>
-
 
 //RealTime clock
 #include <DS1307RTC.h>
@@ -52,36 +48,12 @@ LiquidCrystal_I2C	lcd(I2C_ADDR,En_pin,Rw_pin,Rs_pin,D4_pin,D5_pin,D6_pin,D7_pin)
 bool alarmSet = false;
 int myVal = 0;
 
-//gps
-static const int RXPin = 9, TXPin = 10;
-static const uint32_t GPSBaud = 9600;
-// The TinyGPS++ object
-TinyGPSPlus gps;
-
-// The serial connection to the GPS device
-SoftwareSerial ss(RXPin, TXPin);
-
-int DSTbegin[] = { //DST 2013 - 2025 in Canada and US
-  310, 309, 308, 313, 312, 311, 310, 308, 314, 313, 312, 310, 309};
-int DSTend[] = { //DST 2013 - 2025 in Canada and US
-  1103, 1102, 1101, 1106, 1105, 1104, 1103, 1101, 1107, 1106, 1105, 1103, 1102};
-
-int DaysAMonth[] = { //number of days a month
-  31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
-int gpsYear, gpsMonth, gpsDay, gpsHour, gpsMin, gpsSec;
-const int TimeZone = -8;
-
+int timeArr[6];
 
 void setup()
 {
-  //gps
-  Serial.begin(115200);
-  ss.begin(GPSBaud);
-  Serial.println(F("DeviceExample.ino"));
-  Serial.println(F("A simple demonstration of TinyGPS++ with an attached GPS module"));
-  Serial.print(F("Testing TinyGPS++ library v. ")); Serial.println(TinyGPSPlus::libraryVersion());
-  Serial.println(F("by Mikal Hart"));
-  Serial.println();
+    Wire.begin(); 
+    Serial.begin(9600);
 
   lcd.begin (20,4);
   
@@ -112,6 +84,9 @@ void setup()
 
 void loop()
 {
+    //sync every hour
+    if( second() % 30 == 0 && minute() % 30 == 0) 
+        gpsSync();
 
 //---------------
     // Backlight on/off every 3 seconds
@@ -636,102 +611,35 @@ void decreaseVolume()
 
 }
 
-//time sync with gps every 5 min.
+
 void gpsSync()
-{    
-    //get current min and second
-    int currentMin = minute();
-    int currentSec = second();
-    
-//    if( (currentMin % 5 == 0) && (currentSec % 30 == 0) )
-    if( (currentSec % 10 == 0) )
-        timeAdjust();                
-
-}//gpsSync
-
-
-static void smartdelay(unsigned long ms)
 {
-  unsigned long start = millis();
-  do 
-  {
-    while (ss.available())
-      gps.encode(ss.read());
-  }
-  while (millis() - start < ms);
+    //get information from gps slave.
+    Wire.requestFrom(4, 7);    // request 3 bytes from slave device #2
+    int tmp = Wire.read();
+    if(tmp != 0)
+    {        
+        for(int i=1;i<7;i++)
+        {
+            int c = Wire.read(); // receive a byte as time data.
+            timeArr[i - 1] = c;                                     
+   
+        }
+        int hour = timeArr[3];
+        int minute = timeArr[4];
+        int second = timeArr[5];
+        int day = timeArr[0];
+        int month = timeArr[1];
+        int year = timeArr[2];
+
+        //setTime(8,29,0,1,1,11); // set time to Saturday 8:29:00am Jan 1 2011
+        setTime(hour,minute,second,day,month,year); // set time to Saturday 8:29:00am Jan 1 2011
+        RTC.set(now());
+                
+     }
+
+
 }
 
-void timeAdjust()
-{
-      if (gps.time.isValid() && gps.date.isValid() )    
-      {      
-      
-        gpsYear = gps.date.year();
-        gpsMonth = gps.date.month();
-        gpsDay = gps.date.day();
-        gpsHour = gps.time.hour();
-        gpsMin = gps.time.minute();
-        gpsSec = gps.time.second();
-      
-        //Timezone Adjustment
-        gpsHour = gps.time.hour();
-        gpsHour += TimeZone;
-                        
-        //DST adjustment
-        if (gpsMonth*100+gpsDay >= DSTbegin[gpsYear-13] && 
-            gpsMonth*100+gpsDay < DSTend[gpsYear-13]) gpsHour += 1;
-
-          if (gpsHour < 0)
-          {
-            gpsHour += 24;
-            gpsDay -= 1;
-            if (gpsDay < 1)
-            {
-              if (gpsMonth == 1)
-              {
-                gpsMonth = 12;
-                gpsYear -= 1;
-              }
-              else
-              {
-                gpsMonth -= 1;
-              }
-              gpsDay = DaysAMonth[gpsMonth-1];
-            } 
-          }
-          if (gpsHour >= 24)
-          {
-            gpsHour -= 24;
-            gpsDay += 1;
-            if (gpsDay > DaysAMonth[gpsMonth-1])
-            {
-              gpsDay = 1;
-              gpsMonth += 1;
-              if (gpsMonth > 12) gpsYear += 1;
-            }
-          }      
-
-
-          Serial.print(gpsDay);
-          Serial.print("/");
-          Serial.print(gpsMonth);
-          Serial.print("/");
-          Serial.print(gpsYear);
-          Serial.print(" ");
-          Serial.print(gpsHour);
-          Serial.print(":");
-          Serial.print(gpsMin);
-          Serial.print(":");
-          Serial.println(gpsSec);             
-
-
-        setTime(8,29,0,1,1,11); // set time to Saturday 8:29:00am Jan 1 2011
-//          setTime(gpsHour, gpsMin, gpsSec, gpsDay, gpsMonth, gpsYear);
-                     
-          RTC.set(now());
-
-       }//if
-
-}
 
 
