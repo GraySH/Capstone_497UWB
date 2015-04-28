@@ -2,11 +2,6 @@
 #include <TinyGPS++.h>
 #include <SoftwareSerial.h>
 
-/*
-   This sample sketch demonstrates the normal use of a TinyGPS++ (TinyGPSPlus) object.
-   It requires the use of SoftwareSerial, and assumes that you have a
-   4800-baud serial GPS device hooked up on pins 4(rx) and 3(tx).
-*/
 static const int RXPin = 9, TXPin = 10;
 static const uint32_t GPSBaud = 9600;
 
@@ -24,9 +19,7 @@ int DSTend[] = { //DST 2013 - 2025 in Canada and US
 int DaysAMonth[] = { //number of days a month
   31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
 
-
 int gpsYear, gpsMonth, gpsDay, gpsHour, gpsMin, gpsSec;
-//byte gpsMin, byte gpsSec;
 
 const int TimeZone = -8;
 
@@ -41,16 +34,12 @@ void setup()
     Wire.onRequest(requestEvent);
 //  Wire.onReceive(receiveEvent); // register event
  
-  Serial.println(F("by Mikal Hart"));
+  Serial.println(F("gps time adjust"));
   Serial.println();
 }
 
 void loop()
 {
-// This sketch displays information every time a new sentence is correctly encoded.
-//  while (ss.available() > 0)
-//    if (gps.encode(ss.read()))
-//      displayInfo();
 
     while (ss.available() > 0)
     if (gps.encode(ss.read()))
@@ -64,7 +53,7 @@ void loop()
         Serial.println(F("No GPS detected: check wiring."));
         while(true);
     }
-    
+   
     
 //    smartdelay(1000);
     
