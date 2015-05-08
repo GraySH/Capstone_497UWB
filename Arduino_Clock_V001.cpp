@@ -34,12 +34,6 @@ byte result;
 #define D7_pin  7
 
 const int ledPin = 13;
-const int buttonPinOne = 7;
-const int buttonPinTwo = 6;
-const int buttonPinUP = 5;
-const int buttonPinLEFT = 4;
-const int buttonPinRIGHT = 3;
-const int buttonPinDOWN = 9;
 
 int n = 1;
 byte button = 0;
@@ -49,8 +43,10 @@ LiquidCrystal_I2C	lcd(I2C_ADDR,En_pin,Rw_pin,Rs_pin,D4_pin,D5_pin,D6_pin,D7_pin)
 
 bool alarmSet = false;
 int myVal = 0;
-
 int timeArr[6];
+
+//alarm time
+int alarm_hour = 0, alarm_minute = 0, alarm_second = 0, alarm_year = 0, alarm_month = 0, alarm_day = 0;
 
 void setup()
 {
@@ -94,10 +90,10 @@ void loop()
         delay(500);                  
         flag = false;
     }
-        
     
-    //sync every hour
-    if( second() % 30 == 0 && minute() % 30 == 0) 
+    //sync time once for a day
+    if( second() % 55 == 0 && minute() % 55 == 0 && hour() % 23 == 0)
+    // if( minute() % 10 == 0)  
         gpsSync();
 
 //---------------
@@ -120,65 +116,59 @@ void loop()
     lcd.setCursor(0,3);
     //    lcd.println("Test");
         
-
     //int hour = 0, minute = 0, second = 0, year = 2015, month = 1, day = 1;
     int hour, minute, second, year, month, day;
     int time_hour, time_minute, time_second, time_year, time_month, time_day;          
-    
-    int buttonStateOne = digitalRead(buttonPinOne);
-    int buttonStateTwo = digitalRead(buttonPinTwo);
-    int buttonStateUP = digitalRead(buttonPinUP);
-    int buttonStateDOWN = digitalRead(buttonPinDOWN);
-    int buttonStateLEFT = digitalRead(buttonPinLEFT);
-    int buttonStateRIGHT = digitalRead(buttonPinRIGHT);        
-
-
+  
    if(!alarmSet)   
    {    
-       hour = 1, minute = 2, second = 3, year = 2015, month = 4, day = 5;       
-       Alarm.alarmRepeat(hour, minute, second, EveryDayAlarm);
+       alarm_hour = 1, alarm_minute = 2, alarm_second = 3, alarm_year = 2015, alarm_month = 4, alarm_day = 5;       
+       Alarm.alarmRepeat(alarm_hour, alarm_minute, alarm_second, EveryDayAlarm);
+       alarmSet = true;
    }
 
     //setting time
-    if(buttonStateOne == LOW)
-    {  
-        alarmSet = true;
-        delay(1000);
+    if(button == 2)
+    {     
         lcd.clear();
         lcd.print("Setting TIME");
-        setUserTime(&time_hour, &time_minute, &time_second, &time_year, &time_month, &day);
-        delay(1000);        
+
+        delay(1000);
+        lcd.clear();    
+
+//      setUserTime(&time_hour, &time_minute, &time_second, &time_year, &time_month, &day);
+        setUserTime();
+        
+        lcd.clear();       
     }
 
     //setting alarm
-    if(buttonStateTwo == LOW)
+    if(button == 3)
     {  
-        alarmSet = true;
-        delay(1000);
+//        alarmSet = true;
         lcd.clear();
-        lcd.println("Setting Alarm");
-        setAlarmTime(&hour, &minute, &second);
-        delay(1000);        
+        lcd.print("Setting Alarm");
+        delay(1000);
+        
+        lcd.clear();        
+        setAlarmTime();
+        lcd.clear();                
+        
     }
 
-    if(buttonStateUP == LOW)
-        increaseVolume();
 
-    if(buttonStateDOWN == LOW)
-        decreaseVolume();
-
-      if(buttonStateLEFT == LOW || buttonStateRIGHT == LOW)
-      {
-        lcd.home();
-        lcd.clear();
-        lcd.print("Stop Alarm");
+      if(button == 7)
+      {      
         if ( MP3player.isPlaying() )
+        {
             MP3player.stopTrack();
-
-        lcd.clear();
-        digitalClockDisplay();
-        delay(500);
-
+            lcd.home();
+            lcd.clear();
+            lcd.print("Stop Alarm");            
+            lcd.clear();
+            digitalClockDisplay();
+            delay(500);
+        }
       }
      
     //  lcd.setBacklight(LOW);      // Backlight off
@@ -188,21 +178,20 @@ void loop()
       
       digitalClockDisplay();
 
-       lcd.setCursor (0,2);     
+        lcd.setCursor (0,2);     
         lcd.print("Alarm: ");
-       lcd.print(hour);
-        printDigitsLCD(minute);
-        printDigitsLCD(second);
+        lcd.print(alarm_hour);
+        printDigitsLCD(alarm_minute, 1);
+        printDigitsLCD(alarm_second, 1);
 
-      Alarm.delay(1000); // wait one second between clock display
-      
+      Alarm.delay(1000); // wait one second between clock display      
 }
 
 void playMusic()
 {
     char trackName[] = "track003.mp3";
     result = MP3player.playMP3(trackName);        
-
+    
 //    char title[10];
 //    MP3player.trackTitle((char*)&title);
 //    lcd.write((byte*)&title, 30);
@@ -233,8 +222,8 @@ void digitalClockDisplay()
   lcd.home();
   lcd.setCursor ( 0, 0 );
   lcd.print(hour());    
-  printDigitsLCD(minute());
-  printDigitsLCD(second());
+  printDigitsLCD(minute() , 1);
+  printDigitsLCD(second(), 1);
   
     //display date
     lcd.setCursor ( 0, 1 );        // go to the 2nd line
@@ -246,9 +235,12 @@ void digitalClockDisplay()
     
 }
 
-void printDigitsLCD(int digits)
+//print digit, no colon with option 0;
+void printDigitsLCD(int digits, int option)
 {
-  lcd.print(":");
+
+  if(option != 0)
+     lcd.print(":");
 
   if(digits < 10)      
     lcd.print('0');
@@ -256,9 +248,12 @@ void printDigitsLCD(int digits)
   lcd.print(digits);
 }
 
+
 void printDigits(int digits)
 {
-  Serial.print(":");
+
+
+    Serial.print(":");
 
   if(digits < 10)
   {
@@ -270,358 +265,311 @@ void printDigits(int digits)
 
 
 //myfunction
-void setUserTime(int* hour, int* minute, int* second, int* year, int* month, int* day)
+//setUserTime(&time_hour, &time_minute, &time_second, &time_year, &time_month, &day);
+void setUserTime()
 {
-     *hour = 0, *minute = 0, *second = 0;
-     *year = 2015, *month = 1, *day = 1;
+// &time_hour, &time_minute, &time_second, &time_year, &time_month, &day
+// setTime(hour,minute,second,day,month,year); // set time to Saturday 8:29:00am Jan 1 2011    
 
-    int buttonStateOne = digitalRead(buttonPinOne);
-    int buttonStateTwo = digitalRead(buttonPinTwo);
-    int buttonStateUP = digitalRead(buttonPinUP);
-    int buttonStateDOWN = digitalRead(buttonPinDOWN);
-    int buttonStateLEFT = digitalRead(buttonPinLEFT);
-    int buttonStateRIGHT = digitalRead(buttonPinRIGHT);        
-    delay(1000);
+    //clear alarm time spot.
+    lcd.clear();
 
-    int val;			
-    while(buttonStateOne == HIGH)
-    {	
+    
+    int display_hour = hour();
+    int display_minute = minute();
+    int display_second = 0;
+    int display_year = year();
+    int display_month = month();
+    int display_day = day();    
+    
+    button = 0;  
+      
+    int currentValue = 1;
+       
+                             
+    while(true)
+    {
+      //get button value to change time
+      if(button == 6)
+      {
+        currentValue = currentValue - 1;
+        if(currentValue < 1)
+            currentValue = 1;
+                   
+        button = 0;
+      }
 
-        lcd.home();	    	    
-        //buttonStateOne = digitalRead(buttonPinOne);
-        buttonStateTwo = digitalRead(buttonPinTwo);
-        buttonStateUP = digitalRead(buttonPinUP);
-        buttonStateDOWN = digitalRead(buttonPinDOWN);
-        buttonStateLEFT = digitalRead(buttonPinLEFT);
-        buttonStateRIGHT = digitalRead(buttonPinRIGHT);        
-
-	    if( buttonStateRIGHT == LOW)		
-	    {
-	        val++;
-//		    val = val % 6;
-            if(val > 5)
-                val = 5;
-        }
-
-	    if( buttonStateLEFT == LOW)		
-	    {
-	        val--;		    	    
-            if(val < 0)
-                val = 0;
-        }
-
-//        lcd.clear();
-        switch (val)
-        {
-            case 0:             //hour change                        
-                lcd.setCursor(10,1);
-                lcd.print("Hour      ");		                    
-	            if( buttonStateUP == LOW)		
-	            {		        
-		            *hour = *hour + 1;
-		            if(*hour > 23)
-		                *hour = 0;
-	            }   
-	            else if(buttonStateDOWN == LOW)
-	            {
-		            *hour = *hour - 1;
-		            if(*hour < 0)
-		                *hour = 23;		        
-	            }		        
-                break;
-            case 1:             //minute change
-                lcd.setCursor(10,1);
-                lcd.print("Minute      ");		                    
-
-	            if( buttonStateUP == LOW)		
-	            {
-		            *minute = *minute + 1;
-		            if(*minute > 59)
-		                *minute = 0;
-	            }                           
-	            else if(buttonStateDOWN == LOW)
-	            {
-		            *minute = *minute - 1;
-		            if(*minute < 0)
-		                *minute = 59;		        
-	            }		        		        
-                break;            
-            case 2:             //second change
-                lcd.setCursor(10,1);
-                lcd.print("Second     ");		                    
-	            if( buttonStateUP == LOW)		
-	            {
-		            *second = *second + 1;
-		            if(*second > 59)
-		                *second = 0;
-	            }                                   
-	            else if(buttonStateDOWN == LOW)
-	            {
-		            *second = *second - 1;
-		            if(*second < 0)
-		                *second = 59;		        
-	            }		        		        		            
-                break;            
-            case 3:             //year change
-                lcd.setCursor(10,1);
-                lcd.print("Year     ");
-	            if( buttonStateUP == LOW)				        
-		            *year = *year + 1;		                                           
-	            else if(buttonStateDOWN == LOW)
-	            {
-		            *year = *year - 1;
-		            if(*year < 0)
-		                *year = 0;		        
-	            }		            
-                		                                
-                break;
-            case 4:             //month change
-                lcd.setCursor(10,1);
-                lcd.print("Month     ");		                                
-	            if( buttonStateUP == LOW)				        
-		            *month = *month + 1;		                                           
-	            else if(buttonStateDOWN == LOW)
-	            {
-		            *month = *month - 1;
-		            if(*year < 0)
-		                *year = 0;		        
-	            }
-                break;                
-            case 5:             //day change
-                lcd.setCursor(10,1);
-                lcd.print("Day     ");		                                
-	            if( buttonStateUP == LOW)				        
-		            *day = *day + 1;		                                           
-	            else if(buttonStateDOWN == LOW)
-	            {
-		            *day = *day - 1;
-		            if(*day < 0)
-		                *day = 0;		        
-	            }	        
-                break;                            
-            default:
-                break;
+      if(button == 8)
+      {
+        currentValue = currentValue + 1;
+        if(currentValue > 6)
+            currentValue = 6;
+            
+         button = 0;
+      }
+       
+       
+//      lcd.noBlink();
+//      delay(1000);
+            
+      lcd.home();       
+      //digitalClockDisplay();               
+      //display currentTime.
+      displayTime(display_hour, display_minute, display_second, display_year, display_month,  display_day  );    
         
-        }//switch
+      //move cursor for time setting.
+      //hour -> min -> second -> year -> month -> day.        
+      
+      switch (currentValue)
+      {
+        case 1:
+            //show hour char
+            lcd.setCursor(10, 0);
+            lcd.print("HOUR     ");
 
-								
-	    //show user setting time.
-	    lcd.home();
-//		lcd.clear();
-	    lcd.print("Setting TIME: ");
-	    setTime(*hour,*minute, *second, *day, *month, *year); 			
+                                                
+            //change time by using up and down key
+            while(true)
+            {                        
+            
+               lcd.setCursor(2,0);
+            
+               getButton();
+               if(button == 7 || button == 6 || button == 8)
+                 break;            
+                
+                if(button == 5) //if up key is pressed, increase value
+                {
+                    display_hour = display_hour + 1;
+                    if(display_hour >= 24)
+                        display_hour = 0;
+                }                                          
+            
+                if(button == 9) //if down key is pressed, decrease value
+                {
+                    display_hour = display_hour - 1;
+                    if(display_hour < 0)
+                        display_hour = 23;
+                }                              
+                
+                displayTime (display_hour, display_minute, display_second, display_year, display_month,  display_day  );
+                
+            delay(100);
+
+            }//while 
+            break;      
+
+      case 2:
+            //show hour char
+            lcd.setCursor(10, 0);
+            lcd.print("MINUTE");
+
+                                                
+            //change time by using up and down key
+            while(true)
+            {                        
+            
+//               lcd.setCursor(2,0);
+           
+               getButton();
+               if(button == 7 || button == 6 || button == 8)
+                 break;            
+                
+                if(button == 5) //if up key is pressed, increase value
+                {
+                    display_minute = display_minute + 1;
+                    if(display_minute >= 60)
+                        display_minute = 0;
+                }                                          
+            
+                if(button == 9) //if down key is pressed, decrease value
+                {
+                    display_minute = display_minute - 1;
+                    if(display_minute < 0)
+                        display_minute = 59;
+                }                              
+                
+                displayTime (display_hour, display_minute, display_second, display_year, display_month,  display_day  );
+                
+            delay(100);
+
+            }//while 
+      
+      
+            break;
+
+      case 3:
+            //show  char
+            lcd.setCursor(10, 0);
+            lcd.print("SECOND ");
+
+                                                
+            //change time by using up and down key
+            while(true)
+            {                        
+            
+//               lcd.setCursor(2,0);
+           
+               getButton();
+               if(button == 7 || button == 6 || button == 8)
+                 break;            
+                
+                if(button == 5) //if up key is pressed, increase value
+                {
+                    display_second = display_second + 1;
+                    if(display_second >= 60)
+                        display_second = 0;
+                }                                          
+            
+                if(button == 9) //if down key is pressed, decrease value
+                {
+                    display_second = display_second - 1;
+                    if(display_second < 0)
+                        display_second = 59;
+                }                              
+                
+                displayTime (display_hour, display_minute, display_second, display_year, display_month,  display_day  );
+                
+            delay(100);
+
+            }//while 
+      
+      
+            break;            
+
+      case 4:
+            //show  char
+            lcd.setCursor(10, 0);
+            lcd.print("YEAR     ");
+
+                                                
+            //change time by using up and down key
+            while(true)
+            {                        
+            
+               lcd.setCursor(2,0);
+            
+               getButton();
+               if(button == 7 || button == 6 || button == 8)
+                 break;            
+                
+                if(button == 5) //if up key is pressed, increase value
+                {
+                    display_year = display_year + 1;
+                    if(display_year >= 2050)
+                        display_year = 2010;
+                }                                          
+            
+                if(button == 9) //if down key is pressed, decrease value
+                {
+                    display_year = display_year - 1;
+                    if(display_year < 2010)
+                        display_year = 2050;
+                }                              
+                
+                displayTime (display_hour, display_minute, display_second, display_year, display_month,  display_day  );
+                
+            delay(100);
+
+            }//while       
+      
+      
+            break;            
+
+      case 5:
+            //show hour char
+            lcd.setCursor(10, 0);
+            lcd.print("MONTH   ");
+
+                                                
+            //change time by using up and down key
+            while(true)
+            {                        
+            
+               lcd.setCursor(2,0);
+            
+               getButton();
+               if(button == 7 || button == 6 || button == 8)
+                 break;            
+                
+                if(button == 5) //if up key is pressed, increase value
+                {
+                    display_month = display_month + 1;
+                    if(display_month >= 12)
+                        display_month = 1;
+                }                                          
+            
+                if(button == 9) //if down key is pressed, decrease value
+                {
+                    display_month = display_month - 1;
+                    if(display_month < 1)
+                        display_month = 12;
+                }                              
+                
+                displayTime (display_hour, display_minute, display_second, display_year, display_month,  display_day  );
+                
+            delay(100);
+
+            }//while 
+      
+      
+            break;            
+
+      case 6:
+            //show char
+            lcd.setCursor(10, 0);
+            lcd.print("DAY   ");
+
+                                                
+            //change time by using up and down key
+            while(true)
+            {                        
+            
+               lcd.setCursor(2,0);
+            
+               getButton();
+               if(button == 7 || button == 6 || button == 8)
+                 break;            
+                
+                if(button == 5) //if up key is pressed, increase value
+                {
+                    display_day = display_day + 1;
+                    if(display_day >= 31)
+                        display_day = 1;
+                }                                          
+            
+                if(button == 9) //if down key is pressed, decrease value
+                {
+                    display_day = display_day - 1;
+                    if(display_day < 1)
+                        display_day = 31;
+                }                              
+                
+                displayTime (display_hour, display_minute, display_second, display_year, display_month,  display_day  );
+                
+            delay(100);
+
+            }//while 
+            
+            break;            
+
+      default:
+            break;      
+      }                      
+      if(button == 7)
+         break;            
+            
+    }//while
+    
+    setTime(display_hour,display_minute,display_second,display_day,display_month,display_year); // set time to Saturday 8:29:00am Jan 1 2011
+    RTC.set(now());                 
         
-        //set rtc time.
-        RTC.set(now());
-
-        lcd.setCursor ( 0, 1 );        //go to the 2nd line
-        lcd.print(*hour);
-        printDigitsLCD(*minute);
-        printDigitsLCD(*second);
-
-        lcd.setCursor ( 0, 2 );
-        lcd.print(*year); lcd.print("/"); lcd.print(*month);lcd.print("/");lcd.print(*day);
-
-
-	
-	    delay(200);
-	    buttonStateOne = digitalRead(buttonPinOne);        
-    }
-
-//    delay(1000);
-//	time_t t = now();
-//	Serial.println("time set to: ");
-//	digitalClockDisplay();
-
     lcd.home();
     lcd.clear();
-    lcd.print("Time set to: ");
-    lcd.setCursor ( 0, 1 );        // go to the 2nd line
-    lcd.print(*hour);
-    printDigitsLCD(*minute);
-    printDigitsLCD(*second);
-
-    lcd.setCursor ( 0, 2 );
-    lcd.print(*year); lcd.print("/"); lcd.print(*month);lcd.print("/");lcd.print(*day);
-
-
-//    Alarm.alarmRepeat(*hour, *minute, *second, EveryDayAlarm);
-    delay(3000);
-    lcd.clear();
-
-
+    digitalClockDisplay();
+        
+    button = 0;            
 }//setUserTime
-
-
-void setAlarmTime(int* hour, int* minute, int* second)
-{
-     *hour = 0, *minute = 0, *second = 0;
-//     *year = 2015, *month = 1, *day = 1;
-
-    int buttonStateOne = digitalRead(buttonPinOne);
-    int buttonStateTwo = digitalRead(buttonPinTwo);
-    int buttonStateUP = digitalRead(buttonPinUP);
-    int buttonStateDOWN = digitalRead(buttonPinDOWN);
-    int buttonStateLEFT = digitalRead(buttonPinLEFT);
-    int buttonStateRIGHT = digitalRead(buttonPinRIGHT);        
-    delay(1000);
-
-    int val;			
-    while(buttonStateTwo == HIGH)
-    {	
-
-        lcd.home();	    	    
-        //buttonStateOne = digitalRead(buttonPinOne);
-        buttonStateTwo = digitalRead(buttonPinTwo);
-        buttonStateUP = digitalRead(buttonPinUP);
-        buttonStateDOWN = digitalRead(buttonPinDOWN);
-        buttonStateLEFT = digitalRead(buttonPinLEFT);
-        buttonStateRIGHT = digitalRead(buttonPinRIGHT);        
-
-
-	    if( buttonStateRIGHT == LOW)		
-	    {
-	        val++;
-//		    val = val % 6;
-            if(val > 2)
-                val = 2;
-        }
-
-	    if( buttonStateLEFT == LOW)		
-	    {
-	        val--;		    	    
-            if(val < 0)
-                val = 0;
-        }
-
-
-  //      lcd.clear();
-        switch (val)
-        {
-            case 0:             //hour change                        
-                lcd.setCursor(10,1);
-                lcd.print("Hour    ");		                    
-	            if( buttonStateUP == LOW)		
-	            {		        
-		            *hour = *hour + 1;
-		            if(*hour > 23)
-		                *hour = 0;
-	            }   
-	            else if(buttonStateDOWN == LOW)
-	            {
-		            *hour = *hour - 1;
-		            if(*hour < 0)
-		                *hour = 23;		        
-	            }		        
-                break;
-            case 1:             //minute change
-                lcd.setCursor(10,1);
-                lcd.print("Minute    ");		                    
-
-	            if( buttonStateUP == LOW)		
-	            {
-		            *minute = *minute + 1;
-		            if(*minute > 59)
-		                *minute = 0;
-	            }                           
-	            else if(buttonStateDOWN == LOW)
-	            {
-		            *minute = *minute - 1;
-		            if(*minute < 0)
-		                *minute = 59;		        
-	            }		        		        
-                break;            
-            case 2:             //second change
-                lcd.setCursor(10,1);
-                lcd.print("Second    ");		                    
-	            if( buttonStateUP == LOW)		
-	            {
-		            *second = *second + 1;
-		            if(*second > 59)
-		                *second = 0;
-	            }                                   
-	            else if(buttonStateDOWN == LOW)
-	            {
-		            *second = *second - 1;
-		            if(*second < 0)
-		                *second = 59;		        
-	            }		        		        		            
-
-            default:
-                break;
-        
-        }//switch
-
-								
-	    //show user setting time.
-	    lcd.home();
-//		lcd.clear();
-	    lcd.print("Setting Alarm: ");
-
-        lcd.setCursor ( 0, 1 );        //go to the 2nd line
-        lcd.print(*hour);
-        printDigitsLCD(*minute);
-        printDigitsLCD(*second);
-	
-	    delay(200);
-	    buttonStateTwo = digitalRead(buttonPinTwo);        
-    }
-
-//    delay(1000);
-//	time_t t = now();
-//	Serial.println("time set to: ");
-//	digitalClockDisplay();
-
-    lcd.home();
-    lcd.clear();
-    lcd.print("Alarm set to:                ");
-    lcd.setCursor ( 0, 1 );        // go to the 2nd line
-
-    //show user setting time.
-//	lcd.clear();
-    lcd.print(*hour);
-    printDigitsLCD(*minute);
-    printDigitsLCD(*second);
-
-    Alarm.alarmRepeat(*hour, *minute, *second, EveryDayAlarm);
-//    Alarm.alarmRepeat(8,30,0, MorningAlarm);
-    delay(3000);
-    lcd.clear();
-
-
-}//setUserTime
-
-void increaseVolume()
-{
-
-    uint8_t volume = volume - 15;
-    if( volume < 15 )
-        volume = 15;
-              
-    MP3player.setVolume(volume, volume);           
-    lcd.home();
-    lcd.setCursor(0,3);
-    lcd.print("                 ");
-    lcd.setCursor(0,3);
-    lcd.print(volume);    
-    delay(1000);
-
-}
-
-void decreaseVolume()
-{
-    uint8_t volume = volume + 15;
-    if( volume > 150 )
-        volume = 150;              
-        
-    lcd.setCursor(0,3);
-    lcd.print("                 ");
-    lcd.setCursor(0,3);
-    lcd.print(volume);    
-    MP3player.setVolume(volume, volume);   
-    delay(1000);
-
-}
 
 
 void gpsSync()
@@ -667,3 +615,213 @@ void getButton()
     }
     
 }
+
+
+void displayTime(int display_hour, int display_minute, int display_second, int display_year, int display_month, int display_day )
+{
+    lcd.home();
+    lcd.setCursor ( 0, 0 );
+    //lcd.print(display_hour);    
+    printDigitsLCD(display_hour, 0);    
+    printDigitsLCD(display_minute, 1);
+    printDigitsLCD(display_second, 1);
+
+    //display date
+    lcd.setCursor ( 0, 1 );        // go to the 2nd line
+    lcd.print( display_year );
+    lcd.print("/");
+//    lcd.print( display_month );
+    printDigitsLCD(display_month, 0);
+    lcd.print("/");
+//    lcd.print( display_day );
+    printDigitsLCD(display_day, 0);
+
+}//display Time on lcd.
+
+
+void setAlarmTime()
+{
+    //clear alarm time spot.
+    lcd.clear();
+    
+    int display_hour = alarm_hour;
+    int display_minute = alarm_minute;
+    int display_second = 0;
+    int display_year = alarm_year;
+    int display_month = alarm_month;
+    int display_day = alarm_day;    
+    
+    button = 0;  
+      
+    int currentValue = 1;
+     
+                             
+    while(true)
+    {
+      //get button value to change time
+      if(button == 6)
+      {
+        currentValue = currentValue - 1;
+        if(currentValue < 1)
+            currentValue = 1;
+                   
+        button = 0;
+      }
+
+      if(button == 8)
+      {
+        currentValue = currentValue + 1;
+        if(currentValue > 3)
+            currentValue = 3;
+            
+         button = 0;
+      }
+       
+       
+//      lcd.noBlink();
+//      delay(1000);
+            
+      lcd.home();       
+      //digitalClockDisplay();               
+      //display currentTime.
+      displayTime(display_hour, display_minute, display_second, display_year, display_month,  display_day  );    
+        
+      //move cursor for time setting.
+      //hour -> min -> second -> year -> month -> day.        
+      
+      switch (currentValue)
+      {
+        case 1:
+            //show hour char
+            lcd.setCursor(10, 0);
+            lcd.print("HOUR     ");
+
+                                                
+            //change time by using up and down key
+            while(true)
+            {                        
+            
+               lcd.setCursor(2,0);
+            
+               getButton();
+               if(button == 7 || button == 6 || button == 8)
+                 break;            
+                
+                if(button == 5) //if up key is pressed, increase value
+                {
+                    display_hour = display_hour + 1;
+                    if(display_hour >= 24)
+                        display_hour = 0;
+                }                                          
+            
+                if(button == 9) //if down key is pressed, decrease value
+                {
+                    display_hour = display_hour - 1;
+                    if(display_hour < 0)
+                        display_hour = 23;
+                }                              
+                
+                displayTime (display_hour, display_minute, display_second, display_year, display_month,  display_day  );
+                
+            delay(100);
+
+            }//while 
+            break;      
+
+      case 2:
+            //show hour char
+            lcd.setCursor(10, 0);
+            lcd.print("MINUTE");
+
+                                                
+            //change time by using up and down key
+            while(true)
+            {                        
+            
+//               lcd.setCursor(2,0);
+           
+               getButton();
+               if(button == 7 || button == 6 || button == 8)
+                 break;            
+                
+                if(button == 5) //if up key is pressed, increase value
+                {
+                    display_minute = display_minute + 1;
+                    if(display_minute > 59)
+                        display_minute = 0;
+                }                                          
+            
+                if(button == 9) //if down key is pressed, decrease value
+                {
+                    display_minute = display_minute - 1;
+                    if(display_minute < 0)
+                        display_minute = 59;
+                }                              
+                
+                displayTime (display_hour, display_minute, display_second, display_year, display_month,  display_day  );
+                
+            delay(100);
+
+            }//while 
+      
+      
+            break;
+
+      case 3:
+            //show  char
+            lcd.setCursor(10, 0);
+            lcd.print("SECOND ");
+
+                                                
+            //change time by using up and down key
+            while(true)
+            {                        
+            
+//               lcd.setCursor(2,0);
+           
+               getButton();
+               if(button == 7 || button == 6 || button == 8)
+                 break;            
+                
+                if(button == 5) //if up key is pressed, increase value
+                {
+                    display_second = display_second + 1;
+                    if(display_second > 59)
+                        display_second = 0;
+                }                                          
+            
+                if(button == 9) //if down key is pressed, decrease value
+                {
+                    display_second = display_second - 1;
+                    if(display_second < 0)
+                        display_second = 59;
+                }                              
+                
+                displayTime (display_hour, display_minute, display_second, display_year, display_month,  display_day  );
+                
+            delay(100);
+
+            }//while       
+      
+            break;            
+
+      default:
+            break;      
+      }                      
+      if(button == 7)
+         break;            
+            
+    }//while
+            
+    alarm_hour = display_hour;
+    alarm_minute = display_minute;
+    alarm_second = display_second;
+            
+    Alarm.alarmRepeat(display_hour, display_minute, display_second, EveryDayAlarm);                
+    lcd.home();
+    lcd.clear();
+    digitalClockDisplay();        
+    button = 0;            
+
+}//AlarmTime
+
