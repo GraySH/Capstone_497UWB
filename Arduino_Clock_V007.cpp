@@ -19,7 +19,7 @@ uint8_t volume = 80;
 int sec = 0;
 //bool volumeFlag = false;
 bool volumeFlag = true;
-bool alarmFlag = true;
+bool alarmFlag = false;
 
 
 //name the library object
@@ -103,8 +103,6 @@ void loop()
     //sync time once for a day
     if( second() % 55 == 0 && minute() % 55 == 0 && hour() % 23 == 0)
         gpsSync();
-    
-    
             
     if ( MP3player.isPlaying() )
     {
@@ -137,7 +135,6 @@ void loop()
        Alarm.alarmRepeat(alarm_hour, alarm_minute, alarm_second, EveryDayAlarm);
        alarmSet = true;
    }
-
 
     //setting time
     if(button == 2)
@@ -178,7 +175,6 @@ void loop()
         lcd.clear();                
         
     }
-
 
 
       if(button == 7)
@@ -908,37 +904,34 @@ void setAlarmTime()
             lcd.setCursor(10, 0);
             lcd.print("SWITCH  ");   
 
-            lcd.setCursor(0, 2);
-            if(alarmFlag == true)
-                lcd.print("ALARM:  ON  ");
-            else
-                lcd.print("ALARM:  OFF");
+//            lcd.setCursor(0, 2);
+//            if(alarmFlag == true)
+//                lcd.print("ALARM:  ON  ");
+//            else
+//                lcd.print("ALARM:  OFF");
 
             while(true)
             {                        
            
                getButton();
                if(button == 7 || button == 6 || button == 8)
-                 break;            
+                 break;                           
                 
                 if(button == 5) 
                 {
-                    lcd.home();
                     lcd.setCursor(0, 2);
                     lcd.print("ALARM:  ON  ");
                     alarmFlag = true;
                 }                                          
             
                 if(button == 9) 
-                {
-                    lcd.home();
+                {                 
                     lcd.setCursor(0, 2);
                     lcd.print("ALARM:  OFF");
                     alarmFlag = false;
                 }                              
                 
-                displayTime (display_hour, display_minute, display_second, display_year, display_month,  display_day  );
-                
+//                displayTime (display_hour, display_minute, display_second, display_year, display_month,  display_day  );                
             delay(100);
 
             }//while             
